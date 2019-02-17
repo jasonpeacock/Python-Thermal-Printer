@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 from Adafruit_Thermal import *
 
@@ -15,11 +15,11 @@ printer.println("Double Height ON")
 printer.doubleHeightOff()
 
 # Set justification (right, center, left) -- accepts 'L', 'C', 'R'
-printer.justify('R')
+printer.justify("R")
 printer.println("Right justified")
-printer.justify('C')
+printer.justify("C")
 printer.println("Center justified")
-printer.justify('L')
+printer.justify("L")
 printer.println("Left justified")
 
 # Test more styles
@@ -31,19 +31,19 @@ printer.underlineOn()
 printer.println("Underlined text")
 printer.underlineOff()
 
-printer.setSize('L')   # Set type size, accepts 'S', 'M', 'L'
+printer.setSize("L")  # Set type size, accepts 'S', 'M', 'L'
 printer.println("Large")
-printer.setSize('M')
+printer.setSize("M")
 printer.println("Medium")
-printer.setSize('S')
+printer.setSize("S")
 printer.println("Small")
 
-printer.justify('C')
+printer.justify("C")
 printer.println("normal\nline\nspacing")
 printer.setLineHeight(50)
 printer.println("Taller\nline\nspacing")
-printer.setLineHeight() # Reset to default
-printer.justify('L')
+printer.setLineHeight()  # Reset to default
+printer.justify("L")
 
 # Barcode examples
 printer.feed(1)
@@ -55,14 +55,16 @@ printer.printBarcode("123456789123", printer.UPC_A)
 
 # Print the 75x75 pixel logo in adalogo.py
 import gfx.adalogo as adalogo
+
 printer.printBitmap(adalogo.width, adalogo.height, adalogo.data)
 
 # Print the 135x135 pixel QR code in adaqrcode.py
 import gfx.adaqrcode as adaqrcode
+
 printer.printBitmap(adaqrcode.width, adaqrcode.height, adaqrcode.data)
 printer.println("Adafruit!")
 printer.feed(2)
 
-printer.sleep()      # Tell printer to sleep
-printer.wake()       # Call wake() before printing again, even if reset
-printer.setDefault() # Restore printer to defaults
+printer.sleep()  # Tell printer to sleep
+printer.wake()  # Call wake() before printing again, even if reset
+printer.setDefault()  # Restore printer to defaults
