@@ -1,0 +1,32 @@
+import logging
+
+log = logging.getLogger(__name__)
+
+
+class ConsolePrinter:
+    """Default console printer, prints to STDOUT.
+
+    Useful as a replacement when `Adafruit_Thermal` or other printers are not available.
+    """
+
+    def __init__(self):
+        pass
+
+    def print(self, content):
+        print(content)
+
+    def feed(self, rows):
+        for _ in range(rows):
+            print()
+
+    def inverseOn(self):
+        pass
+
+    def inverseOff(self):
+        pass
+
+    def underlineOn(self):
+        pass
+
+    def underlineOff(self):
+        pass

@@ -14,27 +14,22 @@
 # Resources:
 # http://www.adafruit.com/products/597 Mini Thermal Receipt Printer
 # http://www.adafruit.com/products/600 Printer starter pack
-
-import RPi.GPIO as GPIO
-import socket
-import subprocess
-import time
-
-import .twitter_statuses
-
 import argparse
+import configparser
+import subprocess
 import sys
+
+import Adafruit_Thermal
+import console_printer
+import iot_printer
+import twitter_statuses
 
 parser = argparse.ArgumentParser(description="Run the IOT printer.")
 parser.add_argument(
-    "-c", "--config-file", required=True, help="The configuration `.ini` file."
+    "--console", action="store_true", help="Print the console instead of the printer."
 )
-parser.add_argument(
-    "--last-id", default=0, type=int, help="The ID of the last tweet printed."
-)
-parser.add_argument(
-    "-v", "--verbose", action="store_true", help="Enable verbose DEBUG logging."
-)
+parser.add_argument("-c", "--config-file", required=True, help="The configuration `.ini` file.")
+parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose DEBUG logging.")
 args = parser.parse_args()
 
 log_level = logging.INFO
@@ -47,7 +42,19 @@ log = logging.getLogger(__name__)
 
 # Processor load is heavy at startup; wait a moment to avoid
 # stalling during greeting.
-# XXX time.sleep(30)
+time.sleep(30)
 
+if args.console:
+    printer = console_printer.ConsolePrinter()
+else:
+    printer = Adafruit_Thermal(serial_device, baud_rate, timeout=timeout_seconds)
+
+twitter = TwitterStatuses(
+    consumer_key=args.consumer_key,
+    consumer_secret=args.consumer_secret,
+    query_string=args.query_string,
+    printer=printer,
+)
+
+iot_printer = IotPrinter(printer=printer, twitter=twitter)
 sys.exit(0)
-

@@ -14,33 +14,35 @@
 # Resources:
 # http://www.adafruit.com/products/597 Mini Thermal Receipt Printer
 # http://www.adafruit.com/products/600 Printer starter pack
-
-import Adafruit_Thermal
 import RPi.GPIO as GPIO
 import socket
 import subprocess
 import time
 
-import .twitter_statuses
-
 from PIL import Image
 
 log = logging.getLogger(__name__)
 
-class Printer:
 
-    _LED_PIN = 18
+class IotPrinter:
+
     _BUTTON_PIN = 23
-    _HOLD_TIME_SECONDS = 2  # Duration for button hold (shutdown)
-    _TAP_TIME_SECONDS = 0.01  # Debounce time for button taps
+    _LED_PIN = 18
 
-    def __init__(self, *, serial_device, baud_rate, timeout_seconds):
+    # Duration for button hold (shutdown)
+    _HOLD_TIME_SECONDS = 2
+
+    # Debounce time for button taps
+    _TAP_TIME_SECONDS = 0.01
+
+    def __init__(self, *, printer, twitter):
         self._next_interval = 0.0  # Time of next recurring operation
         self._daily_flag = False  # Set after daily trigger occurs
-        self._last_id = "1"  # State information passed to/from interval script
 
-        self._printer = Adafruit_Thermal(serial_device, baud_rate, timeout=timeout_seconds)
+        self._printer = printer
+        self._twitter = twitter
 
+    def setup(self):
         # Use Broadcom pin numbers (not Raspberry Pi pin numbers) for GPIO.
         GPIO.setmode(GPIO.BCM)
 
@@ -50,13 +52,6 @@ class Printer:
 
         # LED on while working.
         GPIO.output(self._LED_PIN, GPIO.HIGH)
-
-        self._twitter = TwitterStatuses(
-            consumer_key=args.consumer_key,
-            consumer_secret=args.consumer_secret,
-            query_string=args.query_string,
-            last_id=args.last_id,
-        )
 
         # Show IP address (if network is available)
         try:
@@ -92,26 +87,34 @@ class Printer:
 
             # Has button state changed?
             if buttonState != previous_button_state:
-                previous_button_state = buttonState  # Yes, save new state/time
+                previous_button_state = buttonState
+                # Yes, save new state/time
                 previous_time = t
-            else:  # Button state unchanged
-                if (t - previous_time) >= self._HOLD_TIME_SECONDS:  # Button held more than 'HOLD_TIME_SECONDS'?
+            else:
+                # Button state unchanged
+
+                if (
+                    t - previous_time
+                ) >= self._HOLD_TIME_SECONDS:  # Button held more than 'HOLD_TIME_SECONDS'?
                     # Yes it has.  Is the hold action as-yet untriggered?
                     if hold_enable == True:  # Yep!
-                        hold()  # Perform hold action (usu. shutdown)
+                        self._hold()  # Perform hold action (usu. shutdown)
                         hold_enable = False  # 1 shot...don't repeat hold action
                         tap_enable = False  # Don't do tap action on release
                 elif (
                     t - previous_time
                 ) >= self._TAP_TIME_SECONDS:  # Not HOLD_TIME_SECONDS.  TAP_TIME_SECONDS elapsed?
                     # Yes.  Debounced press or release...
-                    if buttonState == True:  # Button released?
+
+                    # Button released?
+                    if buttonState == True:
                         if tap_enable == True:  # Ignore if prior hold()
-                            tap()  # Tap triggered (button released)
-                            tap_enable = False  # Disable tap and hold
+                            self._tap()  # Tap triggered (button released)
+                            tap_enable = False
                             hold_enable = False
-                    else:  # Button pressed
-                        tap_enable = True  # Enable tap and hold actions
+                    else:
+                        # Button pressed
+                        tap_enable = True
                         hold_enable = True
 
             # LED blinks while idle, for a brief interval every 2 seconds.
@@ -128,26 +131,22 @@ class Printer:
             l = time.localtime()
             if (60 * l.tm_hour + l.tm_min) > (60 * 6 + 30):
                 if daily_flag == False:
-                    daily()
+                    self._daily()
                     daily_flag = True
             else:
-                daily_flag = False  # Reset daily trigger
+                # Reset daily trigger
+                daily_flag = False
 
-            # Every 30 seconds, run Twitter scripts.  'last_id' is passed around
-            # to preserve state between invocations.  Probably simpler to do an
-            # import thing.
+            # Every 30 seconds, run Twitter scripts.
             if t > next_interval:
                 next_interval = t + 30.0
-                result = interval()
-                if result is not None:
-                    last_id = result.decode("utf-8").rstrip("\r\n")
+                self._interval()
 
     def _tap(self):
         """Called when button is briefly tapped. Invokes time/temperature script."""
         GPIO.output(self._LED_PIN, GPIO.HIGH)  # LED on while working
         subprocess.call(["./timetemp.py"])
         GPIO.output(self._LED_PIN, GPIO.LOW)
-
 
     def _hold(self):
         """Called when button is held down. Prints image, invokes shutdown process."""
@@ -158,23 +157,19 @@ class Printer:
         subprocess.call(["shutdown", "-h", "now"])
         GPIO.output(self._LED_PIN, GPIO.LOW)
 
-
     def _interval(self):
         """Called at periodic intervals (30 seconds by default)."""
         GPIO.output(self._LED_PIN, GPIO.HIGH)
 
-        last_id = self._twitter.update_and_print()
-        log.info("Last status ID [%s]", last_id)
+        self._twitter.update_and_print()
 
         GPIO.output(self._LED_PIN, GPIO.LOW)
-
-        return last_id
-
 
     def _daily(self):
         """Called once per day (6:30am by default). Invokes weather forecast and sudoku-gfx scripts."""
         GPIO.output(self._LED_PIN, GPIO.HIGH)
+
         subprocess.call(["./forecast.py"])
         subprocess.call(["./sudoku-gfx.py"])
-        GPIO.output(self._LED_PIN, GPIO.LOW)
 
+        GPIO.output(self._LED_PIN, GPIO.LOW)

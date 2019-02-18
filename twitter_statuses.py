@@ -11,7 +11,6 @@
 # string to your liking.  DO NOT SHARE your consumer key or secret!
 # If you put code on Github or other public repository, replace them
 # with dummy strings.
-
 import logging
 import twitter
 
@@ -22,34 +21,6 @@ log = logging.getLogger(__name__)
 
 
 class TwitterStatuses:
-    class Printer:
-        """Default STDOUT printer.
-
-        Useful as a replacement when `Adafruit_Thermal` or other printers are not available.
-        """
-
-        def __init__(self):
-            pass
-
-        def print(self, content):
-            print(content)
-
-        def feed(self, rows):
-            for _ in range(rows):
-                print()
-
-        def inverseOn(self):
-            pass
-
-        def inverseOff(self):
-            pass
-
-        def underlineOn(self):
-            pass
-
-        def underlineOff(self):
-            pass
-
     class QueryResultType(Enum):
         MIXED = "mixed"
         POPULAR = "popular"
@@ -58,9 +29,7 @@ class TwitterStatuses:
     QUERY_MAX_RESULTS = 3
     QUERY_RESULT_TYPE = QueryResultType.RECENT
 
-    def __init__(
-        self, *, consumer_key, consumer_secret, query_string, last_id=0, printer=Printer()
-    ):
+    def __init__(self, *, consumer_key, consumer_secret, query_string, printer, last_id=0):
         log.debug("Instantiating twitter client")
 
         self._query_string = query_string
@@ -117,6 +86,8 @@ if __name__ == "__main__":
     import argparse
     import sys
 
+    import console_printer
+
     parser = argparse.ArgumentParser(description="Retrieve and print Twitter statuses.")
     parser.add_argument(
         "--query-string", required=True, help="The Twitter query string to search for tweets."
@@ -127,9 +98,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--consumer-secret", required=True, help="The Twitter API 'consumer secret' value."
     )
-    parser.add_argument(
-        "--last-id", default=0, type=int, help="The ID of the last tweet printed."
-    )
+    parser.add_argument("--last-id", default=0, type=int, help="The ID of the last tweet printed.")
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Enable verbose DEBUG logging."
     )
@@ -147,6 +116,7 @@ if __name__ == "__main__":
         consumer_key=args.consumer_key,
         consumer_secret=args.consumer_secret,
         query_string=args.query_string,
+        printer=console_printer.ConsolePrinter(),
         last_id=args.last_id,
     )
 
