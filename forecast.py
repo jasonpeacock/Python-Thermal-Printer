@@ -44,7 +44,7 @@ def forecast(idx):
 
 
 printer = Adafruit_Thermal("/dev/serial0", 19200, timeout=5)
-deg = chr(0xF8).encode('latin-1')  # Degree symbol on thermal printer
+deg = chr(0xF8).encode("latin-1")  # Degree symbol on thermal printer
 
 url = (
     "https://api.darksky.net/forecast/"

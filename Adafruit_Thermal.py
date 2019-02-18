@@ -176,23 +176,23 @@ class Adafruit_Thermal(Serial):
         """'Raw' byte-writing method."""
         if self.writeToStdout:
             for arg in args:
-                sys.stdout.write(chr(arg).encode('latin-1'))
+                sys.stdout.write(chr(arg))
         else:
             self.timeoutWait()
             self.timeoutSet(len(args) * self.byteTime)
             for arg in args:
-                super(Adafruit_Thermal, self).write(chr(arg).encode('latin-1'))
+                super(Adafruit_Thermal, self).write(chr(arg).encode("latin-1"))
 
     def write(self, *data):
         """Override write() method to keep track of paper feed."""
         for i in range(len(data)):
             c = data[i]
             if self.writeToStdout:
-                sys.stdout.write(c.encode('latin-1'))
+                sys.stdout.write(c)
                 continue
             if c != 0x13:
                 self.timeoutWait()
-                super(Adafruit_Thermal, self).write(c.encode('latin-1'))
+                super(Adafruit_Thermal, self).write(c.encode("latin-1"))
                 d = self.byteTime
                 if (c == "\n") or (self.column == self.maxColumn):
                     # Newline or wrap
@@ -331,19 +331,19 @@ class Adafruit_Thermal(Serial):
             if n > 255:
                 n = 255
             if self.writeToStdout:
-                sys.stdout.write(chr(n).encode('latin-1'))
+                sys.stdout.write(chr(n))
                 for i in range(n):
                     sys.stdout.write(text[i])
             else:
-                super(Adafruit_Thermal, self).write(chr(n).encode('latin-1'))
+                super(Adafruit_Thermal, self).write(chr(n).encode("latin-1"))
                 for i in range(n):
-                    super(Adafruit_Thermal, self).write(text[i].encode('latin-1'))
+                    super(Adafruit_Thermal, self).write(text[i].encode("latin-1"))
         else:
             # Older firmware: write string + NUL
             if self.writeToStdout:
-                sys.stdout.write(text.encode('latin-1'))
+                sys.stdout.write(text)
             else:
-                super(Adafruit_Thermal, self).write(text.encode('latin-1'))
+                super(Adafruit_Thermal, self).write(text.encode("latin-1"))
         self.prevByte = "\n"
 
         # === Character commands ===
@@ -526,9 +526,9 @@ class Adafruit_Thermal(Serial):
             for y in range(chunkHeight):
                 for x in range(rowBytesClipped):
                     if self.writeToStdout:
-                        sys.stdout.write(chr(bitmap[i]).encode('latin-1'))
+                        sys.stdout.write(chr(bitmap[i]).encode("latin-1"))
                     else:
-                        super(Adafruit_Thermal, self).write(chr(bitmap[i]).encode('latin-1'))
+                        super(Adafruit_Thermal, self).write(chr(bitmap[i]).encode("latin-1"))
                     i += 1
                 i += rowBytes - rowBytesClipped
             self.timeoutSet(chunkHeight * self.dotPrintTime)
