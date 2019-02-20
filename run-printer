@@ -16,22 +16,32 @@
 # http://www.adafruit.com/products/600 Printer starter pack
 import argparse
 import configparser
-import subprocess
+import logging
+import os
 import sys
 
-import Adafruit_Thermal
-import console_printer
 import iot_printer
-import twitter_statuses
+import task_manager
 
+SECTION_DAILY_TASKS = "daily_tasks"
+SECTION_INTERVAL_TASKS = "interval_tasks"
+SECTION_PRINTER = "printer"
+SECTION_TAP_TASKS = "tap_tasks"
+
+#
+# MAIN
+#
+
+# Parse the commandline arguments.
 parser = argparse.ArgumentParser(description="Run the IOT printer.")
 parser.add_argument(
-    "--console", action="store_true", help="Print the console instead of the printer."
+    "--console", action="store_true", help="Print to the console instead of the printer."
 )
 parser.add_argument("-c", "--config-file", required=True, help="The configuration `.ini` file.")
 parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose DEBUG logging.")
 args = parser.parse_args()
 
+# Setup logging.
 log_level = logging.INFO
 if args.verbose:
     log_level = logging.DEBUG
@@ -40,21 +50,40 @@ logging.basicConfig(format="[%(levelname)s]\t(%(name)s)\t%(message)s", level=log
 
 log = logging.getLogger(__name__)
 
-# Processor load is heavy at startup; wait a moment to avoid
-# stalling during greeting.
-time.sleep(30)
+# Read the configuration file.
+if not os.path.isfile(args.config_file):
+    log.fatal("Config file [%s] is not readable", args.config_file)
+    sys.exit(1)
 
+config = configparser.ConfigParser(allow_no_value=True)
+config.read(args.config_file)
+
+# Configure the Printer.
 if args.console:
+    import console_printer
+
     printer = console_printer.ConsolePrinter()
 else:
+    import Adafruit_Thermal
+
+    # Processor load is heavy at startup; wait a moment to avoid stalling during greeting.
+    startup_delay_seconds = config[SECTION_PRINTER].getint("startup_delay_seconds", 30)
+    log.info("Waiting [%s] seconds after startup before running", startup_delay_seconds)
+    time.sleep(startup_delay_seconds)
+
+    serial_device = config[SECTION_PRINTER].get("serial_device", "/dev/serial0")
+    baud_rate = config[SECTION_PRINTER].getint("baud_rate", 19200)
+    timeout_seconds = config[SECTION_PRINTER].getint("timeout_seconds", 5)
     printer = Adafruit_Thermal(serial_device, baud_rate, timeout=timeout_seconds)
 
-twitter = TwitterStatuses(
-    consumer_key=args.consumer_key,
-    consumer_secret=args.consumer_secret,
-    query_string=args.query_string,
-    printer=printer,
-)
+iot_printer = IotPrinter(printer=printer)
 
-iot_printer = IotPrinter(printer=printer, twitter=twitter)
+task_manager = TaskManager()
+task_manager.load_tasks(iot_printer.add_daily_task, SECTION_DAILY_TASKS)
+task_manager.load_tasks(iot_printer.add_interval_task, SECTION_INTERVAL_TASKS)
+task_manager.load_tasks(iot_printer.add_tap_task, SECTION_TAP_TASKS)
+
+# Run the printer, forever.
+iot_printer.run()
+
 sys.exit(0)

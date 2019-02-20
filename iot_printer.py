@@ -1,19 +1,3 @@
-#!/usr/bin/env python3
-
-# Main script for Adafruit Internet of Things Printer 2.  Monitors button
-# for taps and holds, performs periodic actions (Twitter polling by default)
-# and daily actions (Sudoku and weather by default).
-#
-# Written by Adafruit Industries.  MIT license.
-#
-# MUST BE RUN AS ROOT (due to GPIO access)
-#
-# Required software includes Adafruit_Thermal, Python Imaging, and PySerial
-# libraries. Other libraries used are part of stock Python install.
-#
-# Resources:
-# http://www.adafruit.com/products/597 Mini Thermal Receipt Printer
-# http://www.adafruit.com/products/600 Printer starter pack
 import RPi.GPIO as GPIO
 import socket
 import subprocess
@@ -35,12 +19,15 @@ class IotPrinter:
     # Debounce time for button taps
     _TAP_TIME_SECONDS = 0.01
 
-    def __init__(self, *, printer, twitter):
+    def __init__(self, *, printer):
         self._next_interval = 0.0  # Time of next recurring operation
         self._daily_flag = False  # Set after daily trigger occurs
 
         self._printer = printer
-        self._twitter = twitter
+
+        self._daily_tasks = ()
+        self._interval_tasks = ()
+        self._tap_tasks = ()
 
     def setup(self):
         # Use Broadcom pin numbers (not Raspberry Pi pin numbers) for GPIO.
@@ -78,6 +65,15 @@ class IotPrinter:
         previous_time = time.time()
         tap_enable = False
         hold_enable = False
+
+    def add_daily_task(self, *, task):
+        self._daily_tasks.append(task)
+
+    def add_interval_task(self, *, task):
+        self._interval_tasks.append(task)
+
+    def add_tap_task(self, *, task):
+        self._tap_tasks.append(task)
 
     def run(self):
         while True:
@@ -145,31 +141,41 @@ class IotPrinter:
     def _tap(self):
         """Called when button is briefly tapped. Invokes time/temperature script."""
         GPIO.output(self._LED_PIN, GPIO.HIGH)  # LED on while working
-        subprocess.call(["./timetemp.py"])
+
+        log.debug("Executing [%s] tap tasks", len(self._tap_tasks))
+        for task in self._tap_tasks:
+            task()
+
         GPIO.output(self._LED_PIN, GPIO.LOW)
 
     def _hold(self):
         """Called when button is held down. Prints image, invokes shutdown process."""
         GPIO.output(self._LED_PIN, GPIO.HIGH)
-        self._printer.printImage(Image.open("gfx/goodbye.png"), True)
+
+        self._printer.printImage(Image.open("./gfx/goodbye.png"), True)
         self._printer.feed(3)
+
         subprocess.call("sync")
         subprocess.call(["shutdown", "-h", "now"])
+
         GPIO.output(self._LED_PIN, GPIO.LOW)
 
     def _interval(self):
         """Called at periodic intervals (30 seconds by default)."""
         GPIO.output(self._LED_PIN, GPIO.HIGH)
 
-        self._twitter.update_and_print()
+        log.debug("Executing [%s] interval tasks", len(self._interval_tasks))
+        for task in self._interval_tasks:
+            task()
 
         GPIO.output(self._LED_PIN, GPIO.LOW)
 
     def _daily(self):
-        """Called once per day (6:30am by default). Invokes weather forecast and sudoku-gfx scripts."""
+        """Called once per day (6:30am by default)."""
         GPIO.output(self._LED_PIN, GPIO.HIGH)
 
-        subprocess.call(["./forecast.py"])
-        subprocess.call(["./sudoku-gfx.py"])
+        log.debug("Executing [%s] daily tasks", len(self._daily_tasks))
+        for task in self._daily_tasks:
+            task()
 
         GPIO.output(self._LED_PIN, GPIO.LOW)
