@@ -39,4 +39,3 @@ class ConsolePrinter:
 
     def boldOff(self):
         pass
-
