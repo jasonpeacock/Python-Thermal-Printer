@@ -15,6 +15,9 @@ class ConsolePrinter:
     def print(self, content):
         print(content)
 
+    def println(self, content):
+        print(content)
+
     def feed(self, rows):
         for _ in range(rows):
             print()
@@ -30,3 +33,10 @@ class ConsolePrinter:
 
     def underlineOff(self):
         pass
+
+    def boldOn(self):
+        pass
+
+    def boldOff(self):
+        pass
+

@@ -1,4 +1,4 @@
-import RPi.GPIO as GPIO
+import logging
 import socket
 import subprocess
 import time
@@ -10,35 +10,29 @@ log = logging.getLogger(__name__)
 
 class IotPrinter:
 
-    _BUTTON_PIN = 23
-    _LED_PIN = 18
-
     # Duration for button hold (shutdown)
     _HOLD_TIME_SECONDS = 2
 
     # Debounce time for button taps
     _TAP_TIME_SECONDS = 0.01
 
-    def __init__(self, *, printer):
+    def __init__(self, *, printer, hardware):
         self._next_interval = 0.0  # Time of next recurring operation
         self._daily_flag = False  # Set after daily trigger occurs
 
         self._printer = printer
 
-        self._daily_tasks = ()
-        self._interval_tasks = ()
-        self._tap_tasks = ()
+        self._hardware = hardware
+
+        self._daily_tasks = []
+        self._interval_tasks = []
+        self._tap_tasks = []
 
     def setup(self):
-        # Use Broadcom pin numbers (not Raspberry Pi pin numbers) for GPIO.
-        GPIO.setmode(GPIO.BCM)
-
-        # Enable LED and button (w/pull-up on latter).
-        GPIO.setup(self._LED_PIN, GPIO.OUT)
-        GPIO.setup(self._BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        self._hardware.setup()
 
         # LED on while working.
-        GPIO.output(self._LED_PIN, GPIO.HIGH)
+        self._hardware.led_on()
 
         # Show IP address (if network is available)
         try:
@@ -58,13 +52,15 @@ class IotPrinter:
         # Print greeting image
         self._printer.printImage(Image.open("./gfx/hello.png"), True)
         self._printer.feed(3)
-        GPIO.output(self._LED_PIN, GPIO.LOW)
+
+        # Done working, LED off.
+        self._hardware.led_off()
 
         # Poll initial button state and time
-        previous_button_state = GPIO.input(self._BUTTON_PIN)
-        previous_time = time.time()
-        tap_enable = False
-        hold_enable = False
+        self._previous_button_state = self._hardware.button_state()
+        self._previous_time = time.time()
+        self._tap_enable = False
+        self._hold_enable = False
 
     def add_daily_task(self, *, task):
         self._daily_tasks.append(task)
@@ -78,49 +74,49 @@ class IotPrinter:
     def run(self):
         while True:
             # Poll current button state and time
-            buttonState = GPIO.input(self._BUTTON_PIN)
+            buttonState = self._hardware.button_state()
             t = time.time()
 
             # Has button state changed?
-            if buttonState != previous_button_state:
-                previous_button_state = buttonState
+            if buttonState != self._previous_button_state:
+                self._previous_button_state = buttonState
                 # Yes, save new state/time
-                previous_time = t
+                self._previous_time = t
             else:
                 # Button state unchanged
 
                 if (
-                    t - previous_time
+                    t - self._previous_time
                 ) >= self._HOLD_TIME_SECONDS:  # Button held more than 'HOLD_TIME_SECONDS'?
                     # Yes it has.  Is the hold action as-yet untriggered?
-                    if hold_enable == True:  # Yep!
+                    if self._hold_enable == True:  # Yep!
                         self._hold()  # Perform hold action (usu. shutdown)
-                        hold_enable = False  # 1 shot...don't repeat hold action
-                        tap_enable = False  # Don't do tap action on release
+                        self._hold_enable = False  # 1 shot...don't repeat hold action
+                        self._tap_enable = False  # Don't do tap action on release
                 elif (
-                    t - previous_time
+                    t - self._previous_time
                 ) >= self._TAP_TIME_SECONDS:  # Not HOLD_TIME_SECONDS.  TAP_TIME_SECONDS elapsed?
                     # Yes.  Debounced press or release...
 
                     # Button released?
                     if buttonState == True:
-                        if tap_enable == True:  # Ignore if prior hold()
+                        if self._tap_enable == True:  # Ignore if prior hold()
                             self._tap()  # Tap triggered (button released)
-                            tap_enable = False
-                            hold_enable = False
+                            self._tap_enable = False
+                            self._hold_enable = False
                     else:
                         # Button pressed
-                        tap_enable = True
-                        hold_enable = True
+                        self._tap_enable = True
+                        self._hold_enable = True
 
             # LED blinks while idle, for a brief interval every 2 seconds.
             # Pin 18 is PWM-capable and a "sleep throb" would be nice, but
             # the PWM-related library is a hassle for average users to install
             # right now.  Might return to this later when it's more accessible.
             if ((int(t) & 1) == 0) and ((t - int(t)) < 0.15):
-                GPIO.output(self._LED_PIN, GPIO.HIGH)
+                self._hardware.led_on()
             else:
-                GPIO.output(self._LED_PIN, GPIO.LOW)
+                self._hardware.led_off()
 
             # Once per day (currently set for 6:30am local time, or when script
             # is first run, if after 6:30am), run forecast and sudoku scripts.
@@ -139,18 +135,18 @@ class IotPrinter:
                 self._interval()
 
     def _tap(self):
-        """Called when button is briefly tapped. Invokes time/temperature script."""
-        GPIO.output(self._LED_PIN, GPIO.HIGH)  # LED on while working
+        """Called when button is briefly tapped."""
+        self._hardware.led_on()
 
         log.debug("Executing [%s] tap tasks", len(self._tap_tasks))
         for task in self._tap_tasks:
             task()
 
-        GPIO.output(self._LED_PIN, GPIO.LOW)
+        self._hardware.led_off()
 
     def _hold(self):
         """Called when button is held down. Prints image, invokes shutdown process."""
-        GPIO.output(self._LED_PIN, GPIO.HIGH)
+        self._hardware.led_on()
 
         self._printer.printImage(Image.open("./gfx/goodbye.png"), True)
         self._printer.feed(3)
@@ -158,24 +154,24 @@ class IotPrinter:
         subprocess.call("sync")
         subprocess.call(["shutdown", "-h", "now"])
 
-        GPIO.output(self._LED_PIN, GPIO.LOW)
+        self._hardware.led_off()
 
     def _interval(self):
         """Called at periodic intervals (30 seconds by default)."""
-        GPIO.output(self._LED_PIN, GPIO.HIGH)
+        self._hardware.led_on()
 
         log.debug("Executing [%s] interval tasks", len(self._interval_tasks))
         for task in self._interval_tasks:
             task()
 
-        GPIO.output(self._LED_PIN, GPIO.LOW)
+        self._hardware.led_off()
 
     def _daily(self):
         """Called once per day (6:30am by default)."""
-        GPIO.output(self._LED_PIN, GPIO.HIGH)
+        self._hardware.led_on()
 
         log.debug("Executing [%s] daily tasks", len(self._daily_tasks))
         for task in self._daily_tasks:
             task()
 
-        GPIO.output(self._LED_PIN, GPIO.LOW)
+        self._hardware.led_off()

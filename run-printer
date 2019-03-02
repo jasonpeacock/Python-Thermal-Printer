@@ -20,8 +20,9 @@ import logging
 import os
 import sys
 
-import iot_printer
-import task_manager
+from iot_printer import IotPrinter
+from task_manager import TaskManager
+from hardware import Hardware, FakeHardware
 
 SECTION_DAILY_TASKS = "daily_tasks"
 SECTION_INTERVAL_TASKS = "interval_tasks"
@@ -63,6 +64,7 @@ if args.console:
     import console_printer
 
     printer = console_printer.ConsolePrinter()
+    hardware = FakeHardware()
 else:
     import Adafruit_Thermal
 
@@ -76,12 +78,25 @@ else:
     timeout_seconds = config[SECTION_PRINTER].getint("timeout_seconds", 5)
     printer = Adafruit_Thermal(serial_device, baud_rate, timeout=timeout_seconds)
 
-iot_printer = IotPrinter(printer=printer)
+    hardware = Hardware()
 
-task_manager = TaskManager()
-task_manager.load_tasks(iot_printer.add_daily_task, SECTION_DAILY_TASKS)
-task_manager.load_tasks(iot_printer.add_interval_task, SECTION_INTERVAL_TASKS)
-task_manager.load_tasks(iot_printer.add_tap_task, SECTION_TAP_TASKS)
+iot_printer = IotPrinter(printer=printer, hardware=hardware)
+iot_printer.setup()
+
+task_manager = TaskManager(config=config)
+task_manager.load_tasks(
+    load_function=iot_printer.add_daily_task,
+    config_section=SECTION_DAILY_TASKS,
+    printer=iot_printer,
+)
+task_manager.load_tasks(
+    load_function=iot_printer.add_interval_task,
+    config_section=SECTION_INTERVAL_TASKS,
+    printer=iot_printer,
+)
+task_manager.load_tasks(
+    load_function=iot_printer.add_tap_task, config_section=SECTION_TAP_TASKS, printer=iot_printer
+)
 
 # Run the printer, forever.
 iot_printer.run()
