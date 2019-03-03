@@ -20,13 +20,14 @@ import logging
 import os
 import sys
 
-from iot_printer import IotPrinter
-from task_manager import TaskManager
 from hardware import Hardware, FakeHardware
+from iot_printer import IotPrinter, PrinterNetworkError
+from task_manager import TaskManager
 
-SECTION_DAILY_TASKS = "daily_tasks"
-SECTION_INTERVAL_TASKS = "interval_tasks"
 SECTION_PRINTER = "printer"
+SECTION_DAILY_TASKS = "daily_tasks"
+SECTION_HOLD_TASKS = "hold_tasks"
+SECTION_INTERVAL_TASKS = "interval_tasks"
 SECTION_TAP_TASKS = "tap_tasks"
 
 #
@@ -34,7 +35,7 @@ SECTION_TAP_TASKS = "tap_tasks"
 #
 
 # Parse the commandline arguments.
-parser = argparse.ArgumentParser(description="Run the IOT printer.")
+parser = argparse.ArgumentParser(description="Run the IoT printer.")
 parser.add_argument(
     "--console", action="store_true", help="Print to the console instead of the printer."
 )
@@ -81,21 +82,41 @@ else:
     hardware = Hardware()
 
 iot_printer = IotPrinter(printer=printer, hardware=hardware)
-iot_printer.setup()
 
-task_manager = TaskManager(config=config)
+try:
+    iot_printer.setup()
+except PrinterNetworkError as e:
+    # The network check fails When run from the console, ignore it.
+    log.exception(e)
+
+# Load the tasks from the configuration.
+task_manager = TaskManager()
+task_manager.load_tasks(
+    load_function=iot_printer.add_hold_task,
+    config=config,
+    section=SECTION_HOLD_TASKS,
+    printer=printer,
+)
+
 task_manager.load_tasks(
     load_function=iot_printer.add_daily_task,
-    config_section=SECTION_DAILY_TASKS,
-    printer=iot_printer,
+    config=config,
+    section=SECTION_DAILY_TASKS,
+    printer=printer,
 )
+
 task_manager.load_tasks(
     load_function=iot_printer.add_interval_task,
-    config_section=SECTION_INTERVAL_TASKS,
-    printer=iot_printer,
+    config=config,
+    section=SECTION_INTERVAL_TASKS,
+    printer=printer,
 )
+
 task_manager.load_tasks(
-    load_function=iot_printer.add_tap_task, config_section=SECTION_TAP_TASKS, printer=iot_printer
+    load_function=iot_printer.add_tap_task,
+    config=config,
+    section=SECTION_TAP_TASKS,
+    printer=printer,
 )
 
 # Run the printer, forever.

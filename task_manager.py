@@ -1,27 +1,34 @@
 import logging
 import subprocess
 
+from PIL import Image
+
 from twitter_statuses import TwitterStatuses
 
 log = logging.getLogger(__name__)
 
 
 class TaskManager:
-    def __init__(self, *, config):
-        self._config = config
+    _TASK_PREFIX = "task_"
+    _TASK_TYPE_SCRIPT = "script"
+    _TASK_TYPE_SHUTDOWN = "shutdown"
+    _TASK_TYPE_TWITTER = "twitter"
+
+    def __init__(self):
         self._tasks = {}
 
-    def load_tasks(self, *, load_function, config_section, printer):
-        for task_name in self._config[config_section]:
-            if not self._config.has_section(task_name):
+    def load_tasks(self, *, load_function, config, section, printer):
+        for task_name in config[section]:
+            task_section = "{}{}".format(self._TASK_PREFIX, task_name)
+            if not config.has_section(task_section):
                 log.warning(
                     "Task [%s] in section [%s] has no configuration, skipping it",
                     task_name,
-                    config_section,
+                    section,
                 )
                 continue
 
-            task_def = self._make_task(task_name, self._config[task_name], printer)
+            task_def = self._make_task(task_name, config[task_section], printer)
             if task_def:
                 load_function(task=task_def)
 
@@ -34,6 +41,8 @@ class TaskManager:
         task_type = config.get("task_type")
         if task_type == "script":
             task_def = self._make_task_script(config)
+        elif task_type == "shutdown":
+            task_def = self._make_task_shutdown(config, printer)
         elif task_type == "twitter":
             task_def = self._make_task_twitter(config, printer)
         else:
@@ -65,3 +74,16 @@ class TaskManager:
         )
 
         return twitter.update_and_print
+
+    def _make_task_shutdown(self, config, printer):
+        image_filepath = config.get("image")
+
+        def printer_shutdown():
+            if image_filepath:
+                printer.printImage(Image.open(image_filepath), True)
+                printer.feed(3)
+
+            subprocess.call("sync")
+            subprocess.call(["shutdown", "-h", "now"])
+
+        return printer_shutdown

@@ -39,3 +39,6 @@ class ConsolePrinter:
 
     def boldOff(self):
         pass
+
+    def printImage(self, image, LaaT=False):
+        pass

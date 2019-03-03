@@ -25,6 +25,7 @@ class IotPrinter:
         self._hardware = hardware
 
         self._daily_tasks = []
+        self._hold_tasks = []
         self._interval_tasks = []
         self._tap_tasks = []
 
@@ -33,6 +34,16 @@ class IotPrinter:
 
         # LED on while working.
         self._hardware.led_on()
+
+        # Poll initial button state and time
+        self._previous_button_state = self._hardware.button_state()
+        self._previous_time = time.time()
+        self._tap_enable = False
+        self._hold_enable = False
+
+        # Print greeting image
+        self._printer.printImage(Image.open("./gfx/hello.png"), True)
+        self._printer.feed(3)
 
         # Show IP address (if network is available)
         try:
@@ -46,24 +57,16 @@ class IotPrinter:
             self._printer.boldOff()
             self._printer.print("Connect display and keyboard\n" "for network troubleshooting.")
             self._printer.feed(3)
-            # XXX raise exception instead
-            exit(0)
-
-        # Print greeting image
-        self._printer.printImage(Image.open("./gfx/hello.png"), True)
-        self._printer.feed(3)
+            raise PrinterNetworkError("No internet connection")
 
         # Done working, LED off.
         self._hardware.led_off()
 
-        # Poll initial button state and time
-        self._previous_button_state = self._hardware.button_state()
-        self._previous_time = time.time()
-        self._tap_enable = False
-        self._hold_enable = False
-
     def add_daily_task(self, *, task):
         self._daily_tasks.append(task)
+
+    def add_hold_task(self, *, task):
+        self._hold_tasks.append(task)
 
     def add_interval_task(self, *, task):
         self._interval_tasks.append(task)
@@ -122,16 +125,16 @@ class IotPrinter:
             # is first run, if after 6:30am), run forecast and sudoku scripts.
             l = time.localtime()
             if (60 * l.tm_hour + l.tm_min) > (60 * 6 + 30):
-                if daily_flag == False:
+                if self._daily_flag == False:
                     self._daily()
-                    daily_flag = True
+                    self._daily_flag = True
             else:
                 # Reset daily trigger
-                daily_flag = False
+                self._daily_flag = False
 
-            # Every 30 seconds, run Twitter scripts.
-            if t > next_interval:
-                next_interval = t + 30.0
+            # Every 30 seconds, run interval scripts.
+            if t > self._next_interval:
+                self._next_interval = t + 30.0
                 self._interval()
 
     def _tap(self):
@@ -148,11 +151,9 @@ class IotPrinter:
         """Called when button is held down. Prints image, invokes shutdown process."""
         self._hardware.led_on()
 
-        self._printer.printImage(Image.open("./gfx/goodbye.png"), True)
-        self._printer.feed(3)
-
-        subprocess.call("sync")
-        subprocess.call(["shutdown", "-h", "now"])
+        log.debug("Executing [%s] hold tasks", len(self._hold_tasks))
+        for task in self._hold_tasks:
+            task()
 
         self._hardware.led_off()
 
@@ -175,3 +176,11 @@ class IotPrinter:
             task()
 
         self._hardware.led_off()
+
+
+class PrinterError(Exception):
+    """Printer Error"""
+
+
+class PrinterNetworkError(PrinterError):
+    "Printer Network Error" ""
