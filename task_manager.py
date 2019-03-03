@@ -84,6 +84,6 @@ class TaskManager:
                 printer.feed(3)
 
             subprocess.call("sync")
-            subprocess.call(["shutdown", "-h", "now"])
+            subprocess.call(["sudo", "shutdown", "-h", "now"])
 
         return printer_shutdown

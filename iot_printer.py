@@ -1,6 +1,5 @@
 import logging
 import socket
-import subprocess
 import time
 
 from PIL import Image
@@ -9,14 +8,14 @@ log = logging.getLogger(__name__)
 
 
 class IotPrinter:
-
     # Duration for button hold (shutdown)
     _HOLD_TIME_SECONDS = 2
 
     # Debounce time for button taps
     _TAP_TIME_SECONDS = 0.01
 
-    def __init__(self, *, printer, hardware):
+    def __init__(self, *, printer, hardware, interval_seconds=30):
+        self._interval_seconds = int(interval_seconds)
         self._next_interval = 0.0  # Time of next recurring operation
         self._daily_flag = False  # Set after daily trigger occurs
 
@@ -30,8 +29,6 @@ class IotPrinter:
         self._tap_tasks = []
 
     def setup(self):
-        self._hardware.setup()
-
         # LED on while working.
         self._hardware.led_on()
 
@@ -132,9 +129,9 @@ class IotPrinter:
                 # Reset daily trigger
                 self._daily_flag = False
 
-            # Every 30 seconds, run interval scripts.
+            # Run interval scripts periodically.
             if t > self._next_interval:
-                self._next_interval = t + 30.0
+                self._next_interval = t + self._interval_seconds
                 self._interval()
 
     def _tap(self):
@@ -148,7 +145,7 @@ class IotPrinter:
         self._hardware.led_off()
 
     def _hold(self):
-        """Called when button is held down. Prints image, invokes shutdown process."""
+        """Called when button is held down."""
         self._hardware.led_on()
 
         log.debug("Executing [%s] hold tasks", len(self._hold_tasks))

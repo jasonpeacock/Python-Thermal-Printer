@@ -4,11 +4,13 @@ log = logging.getLogger(__name__)
 
 
 class FakeHardware:
-    def __init__(self):
-        pass
+    """Fake printer hardware interface.
 
-    def setup(self):
-        pass
+    Useful when GPIO is not available.
+    """
+
+    def __init__(self):
+        log.debug("Initializing **fake** printer hardware interfaces")
 
     def led_on(self):
         pass
@@ -17,29 +19,39 @@ class FakeHardware:
         pass
 
     def button_state(self):
-        return False
+        # "Released" (un-pressed) button is True.
+        return True
 
 
 class Hardware:
+    """Printer hardware interface.
+
+    Manages the LED & button.
+    """
+
     _BUTTON_PIN = 23
     _LED_PIN = 18
 
     def __init__(self):
+        log.debug("Initializing printer hardware interfaces")
         import RPi.GPIO as GPIO
 
-    def setup(self):
+        self._GPIO = GPIO
+
         # Use Broadcom pin numbers (not Raspberry Pi pin numbers) for GPIO.
-        GPIO.setmode(GPIO.BCM)
+        self._GPIO.setmode(self._GPIO.BCM)
 
         # Enable LED and button (w/pull-up on latter).
-        GPIO.setup(self._LED_PIN, GPIO.OUT)
-        GPIO.setup(self._BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        self._GPIO.setup(self._LED_PIN, self._GPIO.OUT)
+        self._GPIO.setup(self._BUTTON_PIN, self._GPIO.IN, pull_up_down=self._GPIO.PUD_UP)
 
     def led_on(self):
-        GPIO.output(self._LED_PIN, GPIO.HIGH)
+        log.debug("Turning LED on")
+        self._GPIO.output(self._LED_PIN, self._GPIO.HIGH)
 
     def led_off(self):
-        GPIO.output(self._LED_PIN, GPIO.LOW)
+        log.debug("Turning LED off")
+        self._GPIO.output(self._LED_PIN, self._GPIO.LOW)
 
     def button_state(self):
-        return GPIO.input(self._BUTTON_PIN)
+        return self._GPIO.input(self._BUTTON_PIN)

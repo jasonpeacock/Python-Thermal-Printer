@@ -31,10 +31,13 @@
 # - Make this use proper Python library installation procedure.
 # - Trap errors properly.  Some stuff just falls through right now.
 # - Add docstrings throughout!
-
-from serial import Serial
+import logging
 import time
 import sys
+
+from serial import Serial
+
+log = logging.getLogger(__name__)
 
 
 class Adafruit_Thermal(Serial):

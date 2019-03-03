@@ -10,7 +10,7 @@ class ConsolePrinter:
     """
 
     def __init__(self):
-        pass
+        log.debug("Initializing **console** printer")
 
     def print(self, content):
         print(content)

@@ -19,6 +19,7 @@ import configparser
 import logging
 import os
 import sys
+import time
 
 from hardware import Hardware, FakeHardware
 from iot_printer import IotPrinter, PrinterNetworkError
@@ -77,7 +78,7 @@ else:
     serial_device = config[SECTION_PRINTER].get("serial_device", "/dev/serial0")
     baud_rate = config[SECTION_PRINTER].getint("baud_rate", 19200)
     timeout_seconds = config[SECTION_PRINTER].getint("timeout_seconds", 5)
-    printer = Adafruit_Thermal(serial_device, baud_rate, timeout=timeout_seconds)
+    printer = Adafruit_Thermal.Adafruit_Thermal(serial_device, baud_rate, timeout=timeout_seconds)
 
     hardware = Hardware()
 
