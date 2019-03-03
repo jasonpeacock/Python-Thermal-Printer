@@ -8,6 +8,10 @@ log = logging.getLogger(__name__)
 
 
 class IotPrinter:
+    """
+    Manager the IoT printer.
+    """
+
     # Duration for button hold (shutdown)
     _HOLD_TIME_SECONDS = 2
 
@@ -22,11 +26,6 @@ class IotPrinter:
         self._printer = printer
 
         self._hardware = hardware
-
-        self._daily_tasks = []
-        self._hold_tasks = []
-        self._interval_tasks = []
-        self._tap_tasks = []
 
     def setup(self):
         # LED on while working.
@@ -59,17 +58,13 @@ class IotPrinter:
         # Done working, LED off.
         self._hardware.led_off()
 
-    def add_daily_task(self, *, task):
-        self._daily_tasks.append(task)
-
-    def add_hold_task(self, *, task):
-        self._hold_tasks.append(task)
-
-    def add_interval_task(self, *, task):
-        self._interval_tasks.append(task)
-
-    def add_tap_task(self, *, task):
-        self._tap_tasks.append(task)
+    def register_tasks_runners(
+        self, *, run_daily_tasks, run_hold_tasks, run_interval_tasks, run_tap_tasks
+    ):
+        self._run_daily_tasks = run_daily_tasks
+        self._run_hold_tasks = run_hold_tasks
+        self._run_interval_tasks = run_interval_tasks
+        self._run_tap_tasks = run_tap_tasks
 
     def run(self):
         while True:
@@ -134,13 +129,12 @@ class IotPrinter:
                 self._next_interval = t + self._interval_seconds
                 self._interval()
 
-    def _tap(self):
-        """Called when button is briefly tapped."""
+    def _daily(self):
+        """Called once per day (6:30am by default)."""
         self._hardware.led_on()
 
-        log.debug("Executing [%s] tap tasks", len(self._tap_tasks))
-        for task in self._tap_tasks:
-            task()
+        log.debug("Running daily tasks")
+        self._run_daily_tasks()
 
         self._hardware.led_off()
 
@@ -148,29 +142,26 @@ class IotPrinter:
         """Called when button is held down."""
         self._hardware.led_on()
 
-        log.debug("Executing [%s] hold tasks", len(self._hold_tasks))
-        for task in self._hold_tasks:
-            task()
+        log.debug("Running hold tasks")
+        self._run_hold_tasks()
 
         self._hardware.led_off()
 
     def _interval(self):
-        """Called at periodic intervals (30 seconds by default)."""
+        """Called at periodic intervals."""
         self._hardware.led_on()
 
-        log.debug("Executing [%s] interval tasks", len(self._interval_tasks))
-        for task in self._interval_tasks:
-            task()
+        log.debug("Running interval tasks")
+        self._run_interval_tasks()
 
         self._hardware.led_off()
 
-    def _daily(self):
-        """Called once per day (6:30am by default)."""
+    def _tap(self):
+        """Called when button is briefly tapped."""
         self._hardware.led_on()
 
-        log.debug("Executing [%s] daily tasks", len(self._daily_tasks))
-        for task in self._daily_tasks:
-            task()
+        log.debug("Running tap tasks")
+        self._run_tap_tasks()
 
         self._hardware.led_off()
 

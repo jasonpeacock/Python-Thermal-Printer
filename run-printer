@@ -68,7 +68,7 @@ if args.console:
     printer = console_printer.ConsolePrinter()
     hardware = FakeHardware()
 else:
-    import Adafruit_Thermal
+    import adafruit_thermal_printer
 
     # Processor load is heavy at startup; wait a moment to avoid stalling during greeting.
     startup_delay_seconds = config[SECTION_PRINTER].getint("startup_delay_seconds", 30)
@@ -78,7 +78,9 @@ else:
     serial_device = config[SECTION_PRINTER].get("serial_device", "/dev/serial0")
     baud_rate = config[SECTION_PRINTER].getint("baud_rate", 19200)
     timeout_seconds = config[SECTION_PRINTER].getint("timeout_seconds", 5)
-    printer = Adafruit_Thermal.Adafruit_Thermal(serial_device, baud_rate, timeout=timeout_seconds)
+    printer = adafruit_thermal_printer.AdafruitThermalPrinter(
+        serial_device, baud_rate, timeout=timeout_seconds
+    )
 
     hardware = Hardware()
 
@@ -87,37 +89,27 @@ iot_printer = IotPrinter(printer=printer, hardware=hardware)
 try:
     iot_printer.setup()
 except PrinterNetworkError as e:
-    # The network check fails When run from the console, ignore it.
-    log.exception(e)
+    # The network check fails when run from the console, ignore it.
+    if not args.console:
+        raise e
 
 # Load the tasks from the configuration.
 task_manager = TaskManager()
-task_manager.load_tasks(
-    load_function=iot_printer.add_hold_task,
-    config=config,
-    section=SECTION_HOLD_TASKS,
-    printer=printer,
-)
 
-task_manager.load_tasks(
-    load_function=iot_printer.add_daily_task,
-    config=config,
-    section=SECTION_DAILY_TASKS,
-    printer=printer,
-)
+task_manager.load_daily_tasks(config=config, section=SECTION_DAILY_TASKS, printer=printer)
 
-task_manager.load_tasks(
-    load_function=iot_printer.add_interval_task,
-    config=config,
-    section=SECTION_INTERVAL_TASKS,
-    printer=printer,
-)
+task_manager.load_hold_tasks(config=config, section=SECTION_HOLD_TASKS, printer=printer)
 
-task_manager.load_tasks(
-    load_function=iot_printer.add_tap_task,
-    config=config,
-    section=SECTION_TAP_TASKS,
-    printer=printer,
+task_manager.load_interval_tasks(config=config, section=SECTION_INTERVAL_TASKS, printer=printer)
+
+task_manager.load_tap_tasks(config=config, section=SECTION_TAP_TASKS, printer=printer)
+
+# Configure the IoT printer with the task runners.
+iot_printer.register_tasks_runners(
+    run_daily_tasks=task_manager.run_daily_tasks,
+    run_hold_tasks=task_manager.run_hold_tasks,
+    run_interval_tasks=task_manager.run_interval_tasks,
+    run_tap_tasks=task_manager.run_tap_tasks,
 )
 
 # Run the printer, forever.
