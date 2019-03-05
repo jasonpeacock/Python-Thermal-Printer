@@ -3,6 +3,7 @@ import subprocess
 
 from PIL import Image
 
+from dark_sky_forecast import DarkSkyForecast
 from twitter_statuses import TwitterStatuses
 
 log = logging.getLogger(__name__)
@@ -14,6 +15,7 @@ class TaskManager:
     _TASK_TYPE_SCRIPT = "script"
     _TASK_TYPE_SHUTDOWN = "shutdown"
     _TASK_TYPE_TWITTER = "twitter"
+    _TASK_TYPE_DARK_SKY = "dark_sky_forecast"
 
     def __init__(self):
         # A cache to avoid reloading the same tasks.
@@ -90,12 +92,14 @@ class TaskManager:
 
         # Otherwise, construct and save a new task.
         task_type = config.get("task_type")
-        if task_type == "script":
+        if task_type == self._TASK_TYPE_SCRIPT:
             task_def = self._make_task_script(config)
-        elif task_type == "shutdown":
+        elif task_type == self._TASK_TYPE_SHUTDOWN:
             task_def = self._make_task_shutdown(config, printer)
-        elif task_type == "twitter":
+        elif task_type == self._TASK_TYPE_TWITTER:
             task_def = self._make_task_twitter(config, printer)
+        elif task_type == self._TASK_TYPE_DARK_SKY:
+            task_def = self._make_task_dark_sky(config, printer)
         else:
             log.warning("Unknown task type [%s], skipping it", task_type)
             task_def = None
@@ -111,6 +115,20 @@ class TaskManager:
             subprocess.call([command])
 
         return run_command
+
+    def _make_task_dark_sky(self, config, printer):
+        api_key = config.get("api_key")
+        latitude = config.get("latitude")
+        longitude = config.get("longitude")
+
+        forecast = DarkSkyForecast(
+            api_key=api_key,
+            latitude=latitude,
+            longitude=longitude,
+            printer=printer,
+        )
+
+        return forecast.update_and_print
 
     def _make_task_twitter(self, config, printer):
         consumer_key = config.get("consumer_key")

@@ -13,12 +13,15 @@ class ConsolePrinter:
         log.debug("Initializing **console** printer")
 
     def print(self, content):
-        print(content)
+        """Print without a line break."""
+        print(content, end="")
 
     def println(self, content):
+        """Print with a line break."""
         print(content)
 
     def feed(self, rows):
+        """Print an empty line."""
         for _ in range(rows):
             print()
 
@@ -41,4 +44,5 @@ class ConsolePrinter:
         pass
 
     def printImage(self, image, LaaT=False):
+        # TODO Print an image to the console.
         pass

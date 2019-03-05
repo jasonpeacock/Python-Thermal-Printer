@@ -26,8 +26,8 @@ class TwitterStatuses:
         POPULAR = "popular"
         RECENT = "recent"
 
-    QUERY_MAX_RESULTS = 3
-    QUERY_RESULT_TYPE = QueryResultType.RECENT
+    _QUERY_MAX_RESULTS = 3
+    _QUERY_RESULT_TYPE = QueryResultType.RECENT
 
     def __init__(self, *, consumer_key, consumer_secret, query_string, printer, last_id=0):
         log.debug("Instantiating twitter client")
@@ -48,8 +48,8 @@ class TwitterStatuses:
         log.debug("Querying twitter")
 
         statuses = self._api.GetSearch(
-            count=self.QUERY_MAX_RESULTS,
-            result_type=self.QUERY_RESULT_TYPE.value,
+            count=self._QUERY_MAX_RESULTS,
+            result_type=self._QUERY_RESULT_TYPE.value,
             since_id=self._last_id,
             term=self._query_string,
         )

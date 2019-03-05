@@ -24,6 +24,7 @@ pip3 install \
     Pillow \
     RPi.GPIO \
     Unidecode \
+    attrdict \
     pyserial \
     python-twitter \
     wiringpi
@@ -52,7 +53,7 @@ sudo lpoptions -d ZJ-58
 
 ## Twitter
 
-Uses Twitter 1.1 API application-only authentication. This **REQUIRES** a Twitter developer account and some account configuration.
+Uses Twitter 1.1 API application-only authentication. This **requires** a Twitter developer account and some account configuration.
 
 Start at https://dev.twitter.com, sign in with your Twitter credentials, select "My Applications" from the avatar drop-down menu at the top right, then "Create a new application."
 
