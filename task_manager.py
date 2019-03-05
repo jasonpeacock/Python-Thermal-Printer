@@ -122,10 +122,7 @@ class TaskManager:
         longitude = config.get("longitude")
 
         forecast = DarkSkyForecast(
-            api_key=api_key,
-            latitude=latitude,
-            longitude=longitude,
-            printer=printer,
+            api_key=api_key, latitude=latitude, longitude=longitude, printer=printer
         )
 
         return forecast.update_and_print
