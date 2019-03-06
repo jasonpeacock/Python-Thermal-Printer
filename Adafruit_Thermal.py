@@ -40,7 +40,7 @@ from serial import Serial
 log = logging.getLogger(__name__)
 
 
-class AdafruitThermalPrinter(Serial):
+class Adafruit_Thermal(Serial):
 
     resumeTime = 0.0
     byteTime = 0.0
@@ -71,10 +71,10 @@ class AdafruitThermalPrinter(Serial):
             # If both passed, use those values.
             baudrate = args[1]
 
-            # Firmware is assumed version 2.68.  Can override this
-            # with the 'firmware=X' argument, where X is the major
-            # version number * 100 + the minor version number (e.g.
-            # pass "firmware=264" for version 2.64.
+        # Firmware is assumed version 2.68.  Can override this
+        # with the 'firmware=X' argument, where X is the major
+        # version number * 100 + the minor version number (e.g.
+        # pass "firmware=264" for version 2.64.
         self.firmwareVersion = kwargs.get("firmware", 268)
 
         if self.writeToStdout is False:
@@ -135,20 +135,19 @@ class AdafruitThermalPrinter(Serial):
         else:
             self.reset()  # Inits some vars
 
-            # Because there's no flow control between the printer and computer,
-            # special care must be taken to avoid overrunning the printer's
-            # buffer.  Serial output is throttled based on serial speed as well
-            # as an estimate of the device's print and feed rates (relatively
-            # slow, being bound to moving parts and physical reality).  After
-            # an operation is issued to the printer (e.g. bitmap print), a
-            # timeout is set before which any other printer operations will be
-            # suspended.  This is generally more efficient than using a delay
-            # in that it allows the calling code to continue with other duties
-            # (e.g. receiving or decoding an image) while the printer
-            # physically completes the task.
+    # Because there's no flow control between the printer and computer,
+    # special care must be taken to avoid overrunning the printer's
+    # buffer.  Serial output is throttled based on serial speed as well
+    # as an estimate of the device's print and feed rates (relatively
+    # slow, being bound to moving parts and physical reality).  After
+    # an operation is issued to the printer (e.g. bitmap print), a
+    # timeout is set before which any other printer operations will be
+    # suspended.  This is generally more efficient than using a delay
+    # in that it allows the calling code to continue with other duties
+    # (e.g. receiving or decoding an image) while the printer
+    # physically completes the task.
 
-            # Sets estimated completion time for a just-issued task.
-
+    # Sets estimated completion time for a just-issued task.
     def timeoutSet(self, x):
         self.resumeTime = time.time() + x
 
@@ -158,18 +157,17 @@ class AdafruitThermalPrinter(Serial):
             while (time.time() - self.resumeTime) < 0:
                 pass
 
-            # Printer performance may vary based on the power supply voltage,
-            # thickness of paper, phase of the moon and other seemingly random
-            # variables.  This method sets the times (in microseconds) for the
-            # paper to advance one vertical 'dot' when printing and feeding.
-            # For example, in the default initialized state, normal-sized text
-            # is 24 dots tall and the line spacing is 32 dots, so the time for
-            # one line to be issued is approximately 24 * print time + 8 * feed
-            # time.  The default print and feed times are based on a random
-            # test unit, but as stated above your reality may be influenced by
-            # many factors.  This lets you tweak the timing to avoid excessive
-            # delays and/or overrunning the printer buffer.
-
+    # Printer performance may vary based on the power supply voltage,
+    # thickness of paper, phase of the moon and other seemingly random
+    # variables.  This method sets the times (in microseconds) for the
+    # paper to advance one vertical 'dot' when printing and feeding.
+    # For example, in the default initialized state, normal-sized text
+    # is 24 dots tall and the line spacing is 32 dots, so the time for
+    # one line to be issued is approximately 24 * print time + 8 * feed
+    # time.  The default print and feed times are based on a random
+    # test unit, but as stated above your reality may be influenced by
+    # many factors.  This lets you tweak the timing to avoid excessive
+    # delays and/or overrunning the printer buffer.
     def setTimes(self, p, f):
         """Units are in microseconds for compatibility with Arduino library."""
         self.dotPrintTime = p / 1000000.0
@@ -216,11 +214,12 @@ class AdafruitThermalPrinter(Serial):
                 self.timeoutSet(d)
                 self.prevByte = c
 
-                # The bulk of this method was moved into __init__,
-                # but this is left here for compatibility with older
-                # code that might get ported directly from Arduino.
-
     def begin(self, heatTime=defaultHeatTime):
+        """
+        The bulk of this method was moved into __init__,
+        but this is left here for compatibility with older
+        code that might get ported directly from Arduino.
+        """
         self.writeBytes(
             27, 55, 11, heatTime, 40  # Esc  # 7 (print settings)  # Heat dots
         )  # Heat interval
@@ -239,9 +238,8 @@ class AdafruitThermalPrinter(Serial):
             self.writeBytes(4, 8, 12, 16)  # every 4 columns,
             self.writeBytes(20, 24, 28, 0)  # 0 is end-of-list.
 
-            # Reset text formatting parameters.
-
     def setDefault(self):
+        """Reset text formatting parameters."""
         self.online()
         self.justify("L")
         self.inverseOff()
@@ -283,7 +281,6 @@ class AdafruitThermalPrinter(Serial):
     CODABAR = 12
 
     def printBarcode(self, text, type):
-
         newDict = {  # UPC codes & values for firmwareVersion >= 264
             self.UPC_A: 65,
             self.UPC_E: 66,
@@ -349,8 +346,7 @@ class AdafruitThermalPrinter(Serial):
                 super(AdafruitThermalPrinter, self).write(text.encode("latin-1"))
         self.prevByte = "\n"
 
-        # === Character commands ===
-
+    # === Character commands ===
     INVERSE_MASK = 1 << 1  # Not in 2.6.8 firmware (see inverseOn())
     UPDOWN_MASK = 1 << 2
     BOLD_MASK = 1 << 3
@@ -441,9 +437,8 @@ class AdafruitThermalPrinter(Serial):
             pos = 0
         self.writeBytes(0x1B, 0x61, pos)
 
-        # Feeds by the specified number of lines
-
     def feed(self, x=1):
+        """Feeds by the specified number of lines."""
         if self.firmwareVersion >= 264:
             self.writeBytes(27, 100, x)
             self.timeoutSet(self.dotFeedTime * self.charHeight)
@@ -457,9 +452,8 @@ class AdafruitThermalPrinter(Serial):
                 self.write("\n")
                 x -= 1
 
-                # Feeds by the specified number of individual pixel rows
-
     def feedRows(self, rows):
+        """Feeds by the specified number of individual pixel rows."""
         self.writeBytes(27, 74, rows)
         self.timeoutSet(rows * dotFeedTime)
         self.prevByte = "\n"
@@ -486,12 +480,14 @@ class AdafruitThermalPrinter(Serial):
         self.writeBytes(29, 33, size)
         prevByte = "\n"  # Setting the size adds a linefeed
 
-        # Underlines of different weights can be produced:
-        # 0 - no underline
-        # 1 - normal underline
-        # 2 - thick underline
-
     def underlineOn(self, weight=1):
+        """
+        Underlines of different weights can be produced:
+
+        0 - no underline
+        1 - normal underline
+        2 - thick underline
+        """
         if weight > 2:
             weight = 2
         self.writeBytes(27, 45, weight)
@@ -654,8 +650,8 @@ class AdafruitThermalPrinter(Serial):
     CHARSET_CROATIA = 14
     CHARSET_CHINA = 15
 
-    # Alters some chars in ASCII 0x23-0x7E range; see datasheet
     def setCharset(self, val=0):
+        """Alters some chars in ASCII 0x23-0x7E range; see datasheet."""
         if val > 15:
             val = 15
         self.writeBytes(27, 82, val)

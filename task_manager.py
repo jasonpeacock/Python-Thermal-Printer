@@ -4,6 +4,7 @@ import subprocess
 from PIL import Image
 
 from dark_sky_forecast import DarkSkyForecast
+from dark_sky_timetemp import DarkSkyTimeTemp
 from twitter_statuses import TwitterStatuses
 
 log = logging.getLogger(__name__)
@@ -15,7 +16,8 @@ class TaskManager:
     _TASK_TYPE_SCRIPT = "script"
     _TASK_TYPE_SHUTDOWN = "shutdown"
     _TASK_TYPE_TWITTER = "twitter"
-    _TASK_TYPE_DARK_SKY = "dark_sky_forecast"
+    _TASK_TYPE_DARK_SKY_FORECAST = "dark_sky_forecast"
+    _TASK_TYPE_DARK_SKY_TIMETEMP = "dark_sky_timetemp"
 
     def __init__(self):
         # A cache to avoid reloading the same tasks.
@@ -98,8 +100,10 @@ class TaskManager:
             task_def = self._make_task_shutdown(config, printer)
         elif task_type == self._TASK_TYPE_TWITTER:
             task_def = self._make_task_twitter(config, printer)
-        elif task_type == self._TASK_TYPE_DARK_SKY:
-            task_def = self._make_task_dark_sky(config, printer)
+        elif task_type == self._TASK_TYPE_DARK_SKY_FORECAST:
+            task_def = self._make_task_dark_sky_forecast(config, printer)
+        elif task_type == self._TASK_TYPE_DARK_SKY_TIMETEMP:
+            task_def = self._make_task_dark_sky_timetemp(config, printer)
         else:
             log.warning("Unknown task type [%s], skipping it", task_type)
             task_def = None
@@ -116,12 +120,23 @@ class TaskManager:
 
         return run_command
 
-    def _make_task_dark_sky(self, config, printer):
+    def _make_task_dark_sky_forecast(self, config, printer):
         api_key = config.get("api_key")
         latitude = config.get("latitude")
         longitude = config.get("longitude")
 
         forecast = DarkSkyForecast(
+            api_key=api_key, latitude=latitude, longitude=longitude, printer=printer
+        )
+
+        return forecast.update_and_print
+
+    def _make_task_dark_sky_timetemp(self, config, printer):
+        api_key = config.get("api_key")
+        latitude = config.get("latitude")
+        longitude = config.get("longitude")
+
+        forecast = DarkSkyTimeTemp(
             api_key=api_key, latitude=latitude, longitude=longitude, printer=printer
         )
 
